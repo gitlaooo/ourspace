@@ -261,7 +261,7 @@ members = [
     },
     {
         "name": "Desy Fauziah Susetyo",
-        "nim": "021002405026",
+        "nim": "021002405022",
         "role": "Trade Analysis",
         "photo": "anggota4.jpeg",
         "description": "Analyzing trade performance and economic findings."
