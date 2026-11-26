@@ -274,7 +274,7 @@ for col, member in zip(columns, members):
 
     with col:
 
-        photo_path = BASE_DIR / "Image" / member["photo"]
+        photo_path = BASE_DIR / "image" / member["photo"]
 
         if photo_path.exists():
             st.image(
