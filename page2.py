@@ -1,6 +1,11 @@
 
 import streamlit as st
 import pandas as pd
+from pathlib import Path
+
+# ==========================================
+# PAGE 2 - TRADE DATA
+# ==========================================
 
 st.title("🌸 Trade Data")
 st.subheader("International Export and Import Data")
@@ -12,123 +17,141 @@ st.write(
 
 st.divider()
 
-# Upload dataset
-st.header("📂 Upload Trade Dataset")
+# ==========================================
+# READ EXCEL DATA AUTOMATICALLY
+# ==========================================
 
-uploaded_file = st.file_uploader(
-    "Upload Excel Dataset",
-    type=["xlsx", "xls"]
+file_path = (
+    Path(__file__).parent /
+    "ekspor_impor_2025_sederhana.xlsx"
 )
 
-if uploaded_file is not None:
+try:
+    df = pd.read_excel(file_path)
 
-    try:
-        df = pd.read_excel(uploaded_file)
+    # Standardize column names
+    df.columns = df.columns.str.strip().str.lower()
 
-        # Standardize column names
-        df.columns = df.columns.str.strip().str.lower()
+    # Check required columns
+    required_columns = ["country", "ekspor", "impor"]
 
-        # Check required columns
-        required_columns = ["country", "ekspor", "impor"]
+    if not all(col in df.columns for col in required_columns):
+        st.error(
+            "Dataset columns must contain: "
+            "country, ekspor, and impor."
+        )
+        st.stop()
 
-        if all(col in df.columns for col in required_columns):
+    # Select required columns
+    df = df[required_columns].copy()
 
-            df = df[required_columns].copy()
+    # Clean data
+    df["country"] = df["country"].astype(str).str.strip()
+    df["ekspor"] = pd.to_numeric(df["ekspor"], errors="coerce")
+    df["impor"] = pd.to_numeric(df["impor"], errors="coerce")
 
-            # Convert numeric columns
-            df["ekspor"] = pd.to_numeric(
-                df["ekspor"], errors="coerce"
-            )
+    df = df.dropna(subset=required_columns)
 
-            df["impor"] = pd.to_numeric(
-                df["impor"], errors="coerce"
-            )
+    # Calculate trade balance
+    df["trade_balance"] = df["ekspor"] - df["impor"]
 
-            df = df.dropna(
-                subset=["country", "ekspor", "impor"]
-            )
+    # ==========================================
+    # DATASET OVERVIEW
+    # ==========================================
 
-            df["country"] = df["country"].astype(str)
+    st.success("International trade dataset loaded successfully!")
 
-            # Calculate trade balance
-            df["trade_balance"] = df["ekspor"] - df["impor"]
+    st.header("📊 Dataset Overview")
 
-            st.success("Dataset successfully uploaded!")
+    col1, col2, col3 = st.columns(3)
 
-            # Overview
-            st.header("📊 Dataset Overview")
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric(
-                    "Total Countries",
-                    f"{df['country'].nunique():,}"
-                )
-
-            with col2:
-                st.metric(
-                    "Total Exports",
-                    f"{df['ekspor'].sum():,.0f}"
-                )
-
-            with col3:
-                st.metric(
-                    "Total Imports",
-                    f"{df['impor'].sum():,.0f}"
-                )
-
-            st.divider()
-
-            # Search country
-            st.header("🔎 Search Country")
-
-            countries = sorted(df["country"].unique())
-
-            selected_country = st.selectbox(
-                "Select a country",
-                ["All Countries"] + countries
-            )
-
-            if selected_country == "All Countries":
-                filtered_df = df.copy()
-            else:
-                filtered_df = df[
-                    df["country"] == selected_country
-                ]
-
-            # Dataset table
-            st.header("📋 International Trade Dataset")
-
-            st.dataframe(
-                filtered_df,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            # Download
-            csv = filtered_df.to_csv(
-                index=False
-            ).encode("utf-8")
-
-            st.download_button(
-                "⬇️ Download Trade Data",
-                data=csv,
-                file_name="ourspace_trade_data.csv",
-                mime="text/csv"
-            )
-
-        else:
-            st.error(
-                "Invalid dataset! Required columns: "
-                "country, ekspor, impor."
-            )
-
-    except Exception as e:
-        st.error(f"Error reading dataset: {e}")
-
-else:
-    st.info(
-        "Please upload your Excel dataset to explore "
-        "international trade data."
+    col1.metric(
+        "Total Countries",
+        f"{df['country'].nunique():,}"
     )
+
+    col2.metric(
+        "Total Exports",
+        f"{df['ekspor'].sum():,.2f}"
+    )
+
+    col3.metric(
+        "Total Imports",
+        f"{df['impor'].sum():,.2f}"
+    )
+
+    st.divider()
+
+    # ==========================================
+    # COUNTRY SEARCH
+    # ==========================================
+
+    st.header("🔎 Search Country")
+
+    countries = sorted(df["country"].unique())
+
+    selected_country = st.selectbox(
+        "Select a country",
+        ["All Countries"] + countries
+    )
+
+    if selected_country == "All Countries":
+        filtered_df = df.copy()
+    else:
+        filtered_df = df[
+            df["country"] == selected_country
+        ].copy()
+
+    # ==========================================
+    # TRADE DATA TABLE
+    # ==========================================
+
+    st.header("📋 International Trade Dataset")
+
+    display_df = filtered_df.rename(
+        columns={
+            "country": "Country",
+            "ekspor": "Export",
+            "impor": "Import",
+            "trade_balance": "Trade Balance"
+        }
+    )
+
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.caption(
+        f"Showing {len(filtered_df)} countries."
+    )
+
+    # ==========================================
+    # DOWNLOAD DATA
+    # ==========================================
+
+    st.divider()
+
+    csv = display_df.to_csv(
+        index=False
+    ).encode("utf-8")
+
+    st.download_button(
+        label="⬇️ Download Trade Data",
+        data=csv,
+        file_name="ourspace_trade_data.csv",
+        mime="text/csv"
+    )
+
+except FileNotFoundError:
+
+    st.error(
+        "Excel file not found. Make sure "
+        "ekspor_impor_2025_sederhana.xlsx "
+        "is in the same folder as page2.py."
+    )
+
+except Exception as e:
+
+    st.error(f"Error reading dataset: {e}")
